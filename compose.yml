@@ -1,0 +1,173 @@
+services:
+  core-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: simple-cloud-kit-api
+    hostname: ${HOSTNAME:-sck-api}
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      # Server Configuration
+      - HOST=0.0.0.0
+      - PORT=8000
+      - WORKERS=${WORKERS:-4}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - RELOAD=${RELOAD:-false}
+      - ACCESS_LOG=${ACCESS_LOG:-true}
+      
+      # Application Configuration
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DEBUG=${DEBUG:-false}
+      - API_V1_STR=${API_V1_STR:-/api/v1}
+      
+      # Database Configuration (if needed)
+      - DATABASE_URL=${DATABASE_URL:-}
+      - REDIS_URL=${REDIS_URL:-}
+      
+      # Security Configuration
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-this}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      
+      # AWS Configuration for boto3
+      - AWS_REGION=${AWS_REGION:-ap-southeast-1}
+      - AWS_DEFAULT_REGION=${AWS_REGION:-ap-southeast-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:-}
+      - AWS_PROFILE=${AWS_PROFILE:-default}
+      - AWS_CONFIG_FILE=/home/core/.aws/config
+      - AWS_SHARED_CREDENTIALS_FILE=/home/core/.aws/credentials
+      - AWS_METADATA_SERVICE_TIMEOUT=${AWS_METADATA_SERVICE_TIMEOUT:-10}
+      - AWS_METADATA_SERVICE_NUM_ATTEMPTS=${AWS_METADATA_SERVICE_NUM_ATTEMPTS:-3}
+      - AWS_STS_REGIONAL_ENDPOINTS=${AWS_STS_REGIONAL_ENDPOINTS:-regional}
+      - AWS_EC2_METADATA_DISABLED=${AWS_EC2_METADATA_DISABLED:-true}
+      
+      # Logging Configuration
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - LOG_FILE=${LOG_FILE:-/opt/core/logs/app.log}
+
+      # Core Automation Configuration
+      - CLIENT=${CLIENT:-eits}
+      - AUTOMATION_ACCOUNT=${AUTOMATION_ACCOUNT:-154798051514}
+      - REGION=${REGION:-ap-southeast-1}
+      - LOCAL_MODE=${LOCAL_MODE:-true}
+      - DYNAMODB_HOST=${DYNAMODB_HOST:-http://dynamodb-local:8000}
+      - VOLUME=${VOLUME:-/opt/core}
+      - LOG_DIR=${LOG_DIR:-/opt/core/logs}
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+
+      # Boto3 Configuration
+      - BOTO3_SESSION_TOKEN=${AWS_SESSION_TOKEN:-}
+      - BOTO3_REGION_NAME=${AWS_REGION:-ap-southeast-1}
+      - PYTHONPATH=/home/core/sck
+
+    volumes:
+      # Persistent data volume
+      - core_data:/opt/core
+      
+      # Optional: Mount local development code (uncomment for development)
+      # - ./sck-core-api:/home/core/sck/sck-core-api
+      
+      # Optional: Mount configuration files
+      # - ./config:/home/core/config:ro
+      
+      # Optional: Mount SSL certificates
+      # - ./certs:/home/core/certs:ro
+    
+    networks:
+      - core_network
+      - sck-network
+
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # Resource limits (adjust as needed)
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    
+    # User specification (already handled in Dockerfile)
+    user: core
+
+  # Optional: Add a reverse proxy (uncomment if needed)
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: sck-nginx
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./certs:/etc/nginx/certs:ro
+  #   depends_on:
+  #     - core-api
+  #   networks:
+  #     - core_network
+  #   restart: unless-stopped
+
+  # Optional: Add Redis for caching (uncomment if needed)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: sck-redis
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - core_network
+  #   restart: unless-stopped
+  #   command: redis-server --appendonly yes
+
+  # Optional: Add PostgreSQL database (uncomment if needed)
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: sck-postgres
+  #   environment:
+  #     - POSTGRES_DB=${POSTGRES_DB:-sck}
+  #     - POSTGRES_USER=${POSTGRES_USER:-core}
+  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   networks:
+  #     - core_network
+  #   restart: unless-stopped
+
+volumes:
+  core_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}
+  
+  # Uncomment if using optional services
+  # redis_data:
+  #   driver: local
+  # postgres_data:
+  #   driver: local
+
+networks:
+  core_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+
+  sck-network:
+    external: true
+    name: sck-network
+      
