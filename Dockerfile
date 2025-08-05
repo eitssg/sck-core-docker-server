@@ -35,9 +35,15 @@ WORKDIR /home/core
 # Clone the repository with all submodules
 RUN git clone --recursive https://github.com/eitssg/simple-cloud-kit.git sck
 
+RUN cat sck/sck-core-api/pyproject.toml 
+
 # Copy service script from the docker project to sck folder
 COPY --chown=core:core service.sh /home/core/sck/service.sh
 RUN chmod +x /home/core/sck/service.sh
+
+# Create and copy static files to FastAPI static directory
+RUN mkdir -p /home/core/sck/sck-core-api/core_api/static
+COPY --chown=core:core static/ /home/core/sck/sck-core-api/core_api/static/
 
 # Setup Poetry virtual environment
 WORKDIR /home/core/sck/sck-core-api
