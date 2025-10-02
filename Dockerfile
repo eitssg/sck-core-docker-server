@@ -4,22 +4,15 @@ FROM python:3.12-slim
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    POETRY_VERSION=1.8.2 \
-    POETRY_HOME="/opt/poetry" \
-    POETRY_CACHE_DIR=/tmp/poetry_cache \
-    POETRY_VENV_IN_PROJECT=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     build-essential \
-    libpq-dev \
+    libpq-dev uv \
     && rm -rf /var/lib/apt/lists/*
-
-# Install Poetry
-RUN pip install poetry==$POETRY_VERSION poetry-dynamic-versioning
 
 # Create core user and group
 RUN groupadd -r core && useradd -r -g core -d /home/core -s /bin/bash core
@@ -45,13 +38,12 @@ RUN chmod +x /home/core/sck/service.sh
 RUN mkdir -p /home/core/sck/sck-core-api/core_api/static
 COPY --chown=core:core static/ /home/core/sck/sck-core-api/core_api/static/
 
-# Setup Poetry virtual environment
+# Setup uv virtual environment
 WORKDIR /home/core/sck/sck-core-api
-RUN poetry env use python3.12 && \
-    poetry install --only=main,prod 
+RUN uv sync --extras=prod 
 
 # Get the virtual environment path
-RUN echo "VENV_PATH=$(poetry env info --path)" >> /home/core/.env
+RUN echo "VENV_PATH=$(uv venv --show-path)" >> /home/core/.env
 
 # Update .bashrc to activate virtual environment
 RUN echo 'source /home/core/.env' >> /home/core/.bashrc && \
